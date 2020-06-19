@@ -59,17 +59,22 @@ class GAClient:
 
         request_body = {
             "viewId": params.get("view_id", self.view_id),
-            "dateRanges": {"startDate": start_date, "endDate": end_date},
+            "dateRanges": [{"startDate": start_date, "endDate": end_date}],
             "dimensions": dimensions,
-            "metrics": metrics,
-            "filtersExpression": params.get("filter", None),
-            "pageToken": params.get("pageToken", None),
+            "metrics": metrics, 
             "samplingLevel": "LARGE",
-            "includeEmptyRows": include_empty_rows,
+            "includeEmptyRows": str(include_empty_rows),
             "segments": segments,
-            "pageSize": "100000",
+
         }
 
+        if (params.get("filter")):
+            request_body["filtersExpression"] = params.get("filter")
+        if (params.get("pageToken")):
+            request_body["pageToken"] = params.get("pageToken")
+
+        request_body['pageSize'] = '100000'
+        
         return request_body
 
     def _parse_response(self, response_obj):
