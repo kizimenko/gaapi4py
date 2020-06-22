@@ -88,6 +88,8 @@ class GAClient:
         result = {}
         data = []
         header_row = []
+        totals_metric_header = []
+        metric_type = {}
 
         column_header = report.get("columnHeader", {})
         metric_header = column_header.get("metricHeader", {}).get(
@@ -98,7 +100,10 @@ class GAClient:
         for dheader in dimension_header:
             header_row.append(dheader)
         for mheader in metric_header:
-            header_row.append(mheader["name"])
+            metric_name  = mheader["name"].replace("ga:", "")
+            header_row.append(metric_name)
+            totals_metric_header.append(metric_name)
+            metric_type[metric_name] = mheader["type"]
 
         rows = report_data.get("rows", [])
         for row in rows:
@@ -114,6 +119,14 @@ class GAClient:
         result_df = pd.DataFrame(data, columns=header_row)
         result_df.columns = result_df.columns.str.replace("ga:", "")
 
+        # Calculate Totals row to another DF
+        totals = report_data.get("totals",[])
+        total = []
+        for m in totals[0]['values']:
+                total.append(m)
+
+        total_df = pd.DataFrame([total], columns=totals_metric_header)
+
         if not report_data.get("samplesReadCounts"):
             samples_read_counts = None
             sampling_space_sizes = None
@@ -127,6 +140,8 @@ class GAClient:
             "samplingSpaceSizes": sampling_space_sizes,
         }
         result["data"] = result_df
+        result["total"] = total_df
+        result["metrics_type"] = metric_type
 
         return result
 
@@ -150,6 +165,9 @@ class GAClient:
                 response["info"] = parsed.get("info")
                 break
         response["data"] = pd.concat(all_data).reset_index(drop=True)
+        response["total"] = parsed.get("total")
+        response["metrics_type"] = parsed.get("metrics_type")
+
         if not response["info"]["isDataGolden"]:
             logger.warning("Data is not golden")
         if response["info"]["samplesReadCounts"]:
