@@ -32,7 +32,7 @@ request_body = {
     'segments': 'sessions::condition::ga:pagePath=@/test/info;ga:pagePath!~.*rick.*|.*monty.*|.*mobile.*' # optional dynamic segment 
 }
 
-response = c.get_all_data(request_body)
+response = c.get_all_data(request_body, typed=True) # if you need dataframe with type columns base on GA metric type use True, default False
 
 response['info'] # sampling and "golden" metadata
 

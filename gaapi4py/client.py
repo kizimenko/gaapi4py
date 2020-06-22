@@ -144,8 +144,19 @@ class GAClient:
         result["metrics_type"] = metric_type
 
         return result
-
-    def get_all_data(self, params):
+    def ga_types_to_df(self, df, dict_types):
+        types = {
+            'PERCENT':'float',
+            'TIME':'float',
+            'INTEGER':'int',
+            'FLOAT':'float',
+            'CURRENCY':'float'
+        }
+        for col  in df.columns:
+            if col in dict_types.keys():
+                df[col]=df[col].astype(types[dict_types[col]])
+        return df
+    def get_all_data(self, params, typed=False):
         """
         Make a single request to GA API with specified parameters
         """
@@ -164,9 +175,15 @@ class GAClient:
             if not params["pageToken"]:
                 response["info"] = parsed.get("info")
                 break
-        response["data"] = pd.concat(all_data).reset_index(drop=True)
-        response["total"] = parsed.get("total")
         response["metrics_type"] = parsed.get("metrics_type")
+
+        if typed:
+            response["data"] = self.ga_types_to_df(pd.concat(all_data).reset_index(drop=True),response["metrics_type"])
+            response["total"] = self.ga_types_to_df(parsed.get("total"),response["metrics_type"])
+        else:
+            response["data"] = pd.concat(all_data).reset_index(drop=True)
+            response["total"] = parsed.get("total")
+        
 
         if not response["info"]["isDataGolden"]:
             logger.warning("Data is not golden")
