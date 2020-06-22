@@ -28,6 +28,8 @@ request_body = {
         'ga:sessions'
     },
     'filter': 'ga:sourceMedium==google / organic' # optional filter clause
+    'segments': 'gaid::ASsDojdDTtCCCsH2eWG17w' # optional segment by id
+    'segments': 'sessions::condition::ga:pagePath=@/test/info;ga:pagePath!~.*rick.*|.*monty.*|.*mobile.*' # optional dynamic segment 
 }
 
 response = c.get_all_data(request_body)
@@ -35,6 +37,10 @@ response = c.get_all_data(request_body)
 response['info'] # sampling and "golden" metadata
 
 response['data'] # Pandas dataframe that contains data from GA
+
+response['total'] # Pandas dataframe with totals
+
+response['metrics_type'] # Dictionary with metric name and type from GA
 ```
 
 If you want to make many requests to a speficic view or with specific dateranges, you can set date ranges for all future requests:
