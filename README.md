@@ -28,7 +28,10 @@ request_body = {
         'ga:sessions'
     },
     'filter': 'ga:sourceMedium==google / organic' # optional filter clause
-    'segments': 'gaid::ASsDojdDTtCCCsH2eWG17w' # optional segment by id
+    'segments': {
+        'gaid::ASsDojdDTtCCCsH2eWG17w',
+        'gaid::ASsDojdDTtCCCjdjwiHkqo'
+    } # optional segments by id
     'segments': 'sessions::condition::ga:pagePath=@/test/info;ga:pagePath!~.*rick.*|.*monty.*|.*mobile.*' # optional dynamic segment 
 }
 
@@ -47,10 +50,11 @@ If you want to make many requests to a speficic view or with specific dateranges
 
 ```python
 # Pass arguments to class init
-c = GAClient(view_id="123456789", start_date="2019-09-01", end_date="2019-09-07") 
+c = GAClient(view_id="123456789", start_date="2019-09-01", end_date="2019-09-07", debuglevel=4) 
 # or use methods to overwrite viewID or dateranges
 c.set_view_id('123456789')
 c.set_dateranges('2019-01-01', '2019-01-31')
+c.set_debuglevel(4) 
 
 request_body_1 = {
     'dimensions': {

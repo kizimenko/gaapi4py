@@ -2,9 +2,13 @@ import os
 from datetime import datetime, date
 import logging
 
+
 import pandas as pd
 from googleapiclient.discovery import build
 from oauth2client.service_account import ServiceAccountCredentials
+
+import httplib2
+
 
 SCOPES = ["https://www.googleapis.com/auth/analytics.readonly"]
 API_NAME = "analyticsreporting"
@@ -18,7 +22,7 @@ class GAClient:
     Client Instance.
     """
 
-    def __init__(self, json_keyfile=None, view_id=None, start_date=None, end_date=None):
+    def __init__(self, json_keyfile=None, view_id=None, start_date=None, end_date=None, debuglevel=None):
         """
         Read service key file and initialize the API client
         """
@@ -29,6 +33,7 @@ class GAClient:
         self.client = build(API_NAME, API_VERSION, credentials=self.credentials)
         self.set_view_id(view_id)
         self.set_dateranges(start_date, end_date)
+        self.set_debuglevel(debuglevel)
 
         logger.debug("gaapi4py client initiated")
 
@@ -55,7 +60,13 @@ class GAClient:
         segments = []
         if params.get("segments"):
             dimensions.append({"name": "ga:segment"})
-            segments.append({"segmentId": params.get("segments")})
+            if isinstance(params.get("segments"), (list, set, tuple)):
+                segments = list(map(lambda x: {"segmentId": x}, params.get("segments")))
+            elif isinstance(params.get("segments"), str):
+                segments.append({"segmentId": params.get("segments")})
+            else:
+                logger.error('Use String for 1 segment, or list for multiple segments')   
+            ##segments.append({"segmentId": params.get("segments")})
 
         request_body = {
             "viewId": params.get("view_id", self.view_id),
@@ -72,10 +83,15 @@ class GAClient:
             request_body["filtersExpression"] = params.get("filter")
         if (params.get("pageToken")):
             request_body["pageToken"] = params.get("pageToken")
+        
 
         request_body['pageSize'] = '100000'
-        
-        return request_body
+
+        final_request = {"reportRequests":request_body}
+
+        if (params.get("useResourceQuotas")):
+            final_request["useResourceQuotas"] = params.get("useResourceQuotas")
+        return final_request
 
     def _parse_response(self, response_obj):
         """
@@ -84,6 +100,7 @@ class GAClient:
 
         report = response_obj.get("reports", None)[0]
         report_data = report.get("data", {})
+        
 
         result = {}
         data = []
@@ -143,6 +160,10 @@ class GAClient:
         result["total"] = total_df
         result["metrics_type"] = metric_type
 
+        if response_obj.get("queryCost"):
+            result['queryCost'] = response_obj.get("queryCost")
+            result['resourceQuotasRemaining'] = response_obj.get("resourceQuotasRemaining")
+
         return result
     def ga_types_to_df(self, df, dict_types):
         types = {
@@ -160,15 +181,21 @@ class GAClient:
         """
         Make a single request to GA API with specified parameters
         """
+        if self.debugelevel is not None:
+            httplib2.debuglevel = self.debugelevel
+            logger.warning(f'Debug level set to: {self.debugelevel}')
+            
         all_data = []
         response = {}
         while True:
             request_body = self._generate_request_body(params)
+            
             raw_response = (
-                self.client.reports()
-                .batchGet(body={"reportRequests": request_body})
-                .execute()
-            )
+                    self.client.reports()
+                    .batchGet(body=request_body)
+                    .execute()
+                )
+
             parsed = self._parse_response(raw_response)
             all_data.append(parsed["data"])
             params["pageToken"] = parsed.get("info", {}).get("nextPageToken", None)
@@ -184,6 +211,10 @@ class GAClient:
             response["data"] = pd.concat(all_data).reset_index(drop=True)
             response["total"] = parsed.get("total")
         
+        if parsed.get('queryCost'):
+            response['queryCost'] = parsed.get('queryCost')
+            response['resourceQuotasRemaining'] = parsed.get('resourceQuotasRemaining')
+            logger.warning(f"queryCost: {response['queryCost']}, dailyQuotaTokensRemaining: {response['resourceQuotasRemaining']['dailyQuotaTokensRemaining']}")
 
         if not response["info"]["isDataGolden"]:
             logger.warning("Data is not golden")
@@ -196,6 +227,10 @@ class GAClient:
                 )
             )
         return response
+
+    def set_debuglevel(self, debuglevel):
+        self.debugelevel = debuglevel
+
 
     def set_view_id(self, view_id):
         """
